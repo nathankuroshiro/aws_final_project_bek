@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bek's Web App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        h1 {
+            color: #222;
+        }
+        button {
+            margin: 5px;
+            padding: 10px;
+            font-size: 14px;
+        }
+        table, th, td {
+            border: 1px solid black;
+            border-collapse: collapse;
+            padding: 6px;
+        }
+        table {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to Bek's Web App</h1>
+    <button onclick="addData()">Add Data</button>
+    <button onclick="deleteOne()">Delete Data</button>
+    <button onclick="deleteAll()">Delete All Data</button>
+    <button onclick="showData()">Show Data</button>
+    <div id="table-container"></div>
+
+    <script>
+        const apiBase = "http://18.142.189.10:5000";
+
+        async function addData() {
+            try {
+                const response = await fetch(`${apiBase}/add`, { method: 'POST' });
+                const result = await response.text();
+                alert(result);
+            } catch (error) {
+                alert("Error: " + error);
+            }
+        }
+
+        async function deleteOne() {
+            try {
+                const response = await fetch(`${apiBase}/delete`, { method: 'POST' });
+                const result = await response.text();
+                alert(result);
+            } catch (error) {
+                alert("Error: " + error);
+            }
+        }
+
+        async function deleteAll() {
+            try {
+                const response = await fetch(`${apiBase}/delete_all`, { method: 'POST' });
+                const result = await response.text();
+                alert(result);
+            } catch (error) {
+                alert("Error: " + error);
+            }
+        }
+
+        async function showData() {
+            try {
+                const response = await fetch(`${apiBase}/results`);
+                const data = await response.json();
+                let html = "<table><tr><th>Gender</th><th>Group</th><th>Edu</th><th>Lunch</th><th>Prep</th><th>Math</th><th>Reading</th><th>Writing</th></tr>";
+                data.forEach(row => {
+                    html += `<tr>${row.map(val => `<td>${val}</td>`).join("")}</tr>`;
+                });
+                html += "</table>";
+                document.getElementById("table-container").innerHTML = html;
+            } catch (error) {
+                alert("Error: " + error);
+            }
+        }
+    </script>
+</body>
+</html>
