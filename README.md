@@ -299,6 +299,12 @@ Create file `index_bek.html`:
 </body>
 </html>
 ```
+HTML has four buttons:
+
+- Add Data
+- Delete One
+- Delete All
+- Show Data
 
 ## 11. Upload HTML to S3
 
@@ -332,3 +338,10 @@ Open:
 http://bek-bucket.s3-website-ap-southeast-1.amazonaws.com
 ```
 
+## Final Deliverables
+
+- [x] EC2 Flask backend working
+- [x] S3 frontend connected and visible
+- [x] RDS PostgreSQL database accessible
+- [x] Add/Delete/Show buttons working
+- [x] Buttons connect frontend and backend
