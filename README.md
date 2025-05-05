@@ -1,4 +1,4 @@
-# Final\ Nodirbek
+# Final Nodirbek Fatkhullaev
 
 ## 1. Set up EC2 Instance
 
