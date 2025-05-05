@@ -1,4 +1,4 @@
-# Final\_Nodirbek
+# Final\ Nodirbek
 
 ## 1. Set up EC2 Instance
 
