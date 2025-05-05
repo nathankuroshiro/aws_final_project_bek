@@ -1,95 +1,218 @@
+# final\_Nodirbek
 
-# Final Project: Full Web Application Deployment on AWS
+## 1. Set up EC2 Instance
 
-### Student: Nodirbek Fatkhullaev
+* Go to AWS Console → EC2 → “Launch Instance”
+* Name: `webapp_bek`
+* AMI: Ubuntu
+* Instance type: `t2.micro`
+* Key pair: Create or choose existing `.pem` file (e.g., `nodirbek-key.pem`)
 
----
+### Configure Security Group (Inbound Rules)
 
-## 💡 Project Description
-This project demonstrates the deployment of a full-stack web application using three AWS services:
-- **Amazon RDS** for hosting a PostgreSQL database
-- **Amazon EC2** for backend logic using Flask (Python)
-- **Amazon S3** for static frontend (HTML/CSS/JS)
+| Type       | Protocol | Port Range | Source              | Purpose                  |
+| ---------- | -------- | ---------- | ------------------- | ------------------------ |
+| SSH        | TCP      | 22         | Your IP             | Connect to EC2 using SSH |
+| HTTP       | TCP      | 80         | 0.0.0.0/0           | Web server access        |
+| Custom TCP | TCP      | 5000       | 0.0.0.0/0           | Access Flask API         |
+| PostgreSQL | TCP      | 5432       | 0.0.0.0/0 or EC2 SG | Connect RDS from EC2     |
 
-The app allows users to **add**, **delete (one)**, **delete all**, and **view** rows in the database via buttons on a web page.
+Click **Launch Instance**.
 
----
+## 2. Set up RDS PostgreSQL Database
 
-## 🔎 Project Components
+* Go to AWS Console → RDS → Create database
+* Choose:
 
-### 1. **Amazon RDS** (Database)
-- **DB Instance name**: `db_bek`
-- **Engine**: PostgreSQL
-- **Endpoint**: `db-bek.c32geugqgvkj.ap-southeast-1.rds.amazonaws.com`
-- **Database Name**: `postgres`
-- **Table**: `tbl_bek_studentscore`
-- **Username**: `adminbek`
-- **Password**: `adminbek`
+  * Creation method: **Standard create**
+  * Engine: **PostgreSQL**
+  * DB instance identifier: `db_bek`
+  * Master username: `adminbek`
+  * Master password: `adminbek`
+  * Public access: **Yes**
+* Expand “Connectivity”:
 
-**Table Schema**:
-```sql
-id SERIAL PRIMARY KEY,
-name VARCHAR(50),
-score INTEGER
-```
+  * VPC: default
+  * Subnet group: default
+  * Security group: same as EC2
+* Click **Create database**
 
-### 2. **Amazon S3** (Frontend)
-- **Bucket name**: `bek-webapp-bucket`
-- **Static Hosting Enabled**
-- **Main HTML File**: `index_bek.html`
+### RDS Security Group
 
-Hosted at:
-```
-http://bek-webapp-bucket.s3-website-ap-southeast-1.amazonaws.com
-```
+* Go to RDS → Databases → `db_bek` → Connectivity & security → VPC Security Group
+* Edit inbound rules:
 
-HTML has four buttons:
-- Add Data
-- Delete One
-- Delete All
-- Show Data
+| Type       | Protocol | Port Range | Source (EC2 SG ID) | Purpose                 |
+| ---------- | -------- | ---------- | ------------------ | ----------------------- |
+| PostgreSQL | TCP      | 5432       | EC2 security group | Allow EC2 to access RDS |
 
-### 3. **Amazon EC2** (Backend)
-- **OS**: Ubuntu
-- **Elastic IP Assigned**: Yes
-- **Deployed Python App**: `app.py` with Flask
-- **Installed**: Flask, psycopg2, flask_cors
-- **Run Command**:
+## 3. Connect to RDS and Import Data Using DBeaver
+
+### Step 1: Connect to RDS
+
+1. Open DBeaver
+2. Database → New Database Connection → Select PostgreSQL
+3. Enter:
+
+   * Host: `db-bek.c32geugqgvkj.ap-southeast-1.rds.amazonaws.com`
+   * Database: `postgres`
+   * User: `adminbek`
+   * Password: `adminbek`
+4. Test Connection → Finish
+
+### Step 2: Create New Database
+
+* Right-click on `postgres` → Create → Database
+* Name: `db_bek`
+* Click OK
+
+### Step 3: Import CSV to New Table
+
+* Right-click on `db_bek` → Tools → Import Data from CSV
+* Select CSV file
+* Table name: `tbl_bek_exam_results`
+* Click Next → Finish
+
+## 4. SSH into EC2
+
 ```bash
-source venv/bin/activate
-python3 app.py
-
+ssh -i "D:\Загрузки\nodirbek-key.pem" ubuntu@18.142.189.10
 ```
 
-App listens on:
-```
-http://<your-elastic-ip>:8000 or 5000
-```
+## 5. Set up Flask Environment
 
----
-
-## 📆 Step-by-Step: How to Deploy
-
-
-
-### ✅ 1. Setup Virtual Environment on EC2
 ```bash
+sudo apt update
+sudo apt install python3-pip python3.10-venv -y
+```
+
+## 6. Create Project Folder and Virtual Env
+
+```bash
+mkdir webapp_bek
+cd webapp_bek
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
 ```
 
-### ✅ 2. Run Flask Backend
+## 7. Install Python Dependencies
+
 ```bash
-python3 app.py
+pip install flask flask-cors psycopg2-binary
 ```
 
-Make sure port 8000 or 5000 is allowed in EC2 security group.
+## 8. Create Flask App (app.py)
 
-### ✅ 3. Upload Static Files to S3
-- Go to S3 > your bucket > Upload
-- Upload `index_bek.html`
- `<!DOCTYPE html>
+```python
+from flask import Flask, jsonify
+from flask_cors import CORS
+import psycopg2
+import random
+
+app = Flask(__name__)
+CORS(app)
+
+
+conn = psycopg2.connect(
+    host="db-bek.c32geugqgvkj.ap-southeast-1.rds.amazonaws.com",
+    database="postgres",
+    user="adminbek",
+    password="adminbek"
+)
+
+@app.route("/")
+def home():
+    return "Welcome to Exam Results API"
+
+@app.route("/results")
+def get_results():
+    try:
+        conn.rollback()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM exam_results")
+        rows = cur.fetchall()
+        cur.close()
+        return jsonify(rows)
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+@app.route("/add", methods=["POST"])
+def add_data():
+    try:
+        cur = conn.cursor()
+        genders = ["male", "female"]
+        groups = ["group A", "group B", "group C", "group D", "group E"]
+        educations = ["high school", "some high school", "some college", "associate's degree", "bachelor's degree", "ma>        lunches = ["standard", "free/reduced"]
+        preps = ["none", "completed"]
+        scores = [random.randint(40, 100) for _ in range(3)]  # math, reading, writing
+
+        query = """
+        INSERT INTO exam_results VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        cur.execute(query, (
+            random.choice(genders),
+            random.choice(groups),
+            random.choice(educations),
+            random.choice(lunches),
+            random.choice(preps),
+            scores[0],
+            scores[1],
+            scores[2]
+        ))
+        conn.commit()
+        cur.close()
+        return "Random data added!"
+    except Exception as e:
+ return jsonify({"error": str(e)})
+
+@app.route("/delete", methods=["POST"])
+def delete_one():
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            DELETE FROM exam_results
+            WHERE ctid IN (
+                SELECT ctid FROM exam_results LIMIT 1
+            )
+            RETURNING *;
+        """)
+        deleted_row = cur.fetchone()
+        conn.commit()
+        cur.close()
+        if deleted_row:
+            return "One row deleted!"
+        else:
+            return "No rows found."
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+@app.route("/delete_all", methods=["POST"])
+def delete_all():
+    cur = conn.cursor()
+    cur.execute("DELETE FROM exam_results")
+    conn.commit()
+    cur.close()
+    return "All rows deleted!"
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+```
+
+## 9. Run Flask App
+
+```bash
+python app.py
+```
+
+Expected: `Running on http://0.0.0.0:5000/`
+
+## 10. Create index\_amal.html
+
+Create file `index_bek.html`:
+
+```html
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -175,24 +298,37 @@ Make sure port 8000 or 5000 is allowed in EC2 security group.
     </script>
 </body>
 </html>
+```
 
-- Enable **static website hosting** in properties
+## 11. Upload HTML to S3
 
----
+* Go to AWS Console → S3 → Create bucket
+* Name: `bekbucket`
+* Uncheck: **Block all public access**
+* Go to **Properties → Static website hosting**
 
-## 🎓 Final Deliverables
+  * Enable
+  * Index document: `index_bek.html`
+* Upload your `index_bek.html` file
+* Go to **Permissions → Bucket Policy** and add:
 
-- [x] EC2 Flask backend working
-- [x] S3 frontend connected and visible
-- [x] RDS PostgreSQL database accessible
-- [x] Add/Delete/Show buttons working
-- [x] Buttons connect frontend and backend
+```json
+{
+  "Version":"2012-10-17",
+  "Statement":[{
+    "Effect":"Allow",
+    "Principal":"*",
+    "Action":"s3:GetObject",
+    "Resource":"arn:aws:s3:::netflix-dashboard-amal/*"
+  }]
+}
+```
 
+## 12. Final Test
 
----
+Open:
 
-## 🚀 Extra Notes
-- **Elastic IP**: assigned and won't change after stop/start.
-- **Security Groups**: 8000 and 5432 ports open.
-- **CORS enabled** for frontend-backend communication.
-- **Randomized data** added on each Add click.
+```
+http://bek-bucket.s3-website-ap-southeast-1.amazonaws.com
+```
+
